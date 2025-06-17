@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Случайные цитаты</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Georgia', serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+
+        .container:hover {
+            transform: translateY(-5px);
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+
+        .quote-container {
+            margin: 30px 0;
+            position: relative;
+        }
+
+        .quote-text {
+            font-size: 1.4em;
+            line-height: 1.6;
+            color: #34495e;
+            font-style: italic;
+            margin-bottom: 20px;
+            position: relative;
+            padding: 0 20px;
+        }
+
+        .quote-text::before {
+            content: '"';
+            font-size: 4em;
+            color: #667eea;
+            position: absolute;
+            left: -10px;
+            top: -20px;
+            font-family: Georgia, serif;
+        }
+
+        .quote-text::after {
+            content: '"';
+            font-size: 4em;
+            color: #667eea;
+            position: absolute;
+            right: -10px;
+            bottom: -40px;
+            font-family: Georgia, serif;
+        }
+
+        .quote-author {
+            font-size: 1.1em;
+            color: #7f8c8d;
+            font-weight: 500;
+            margin-top: 20px;
+        }
+
+        .quote-author::before {
+            content: '— ';
+        }
+
+        .refresh-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 30px;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .refresh-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .refresh-btn:active {
+            transform: translateY(0);
+        }
+
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .error {
+            color: #e74c3c;
+            font-style: normal;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
+
+            h1 {
+                font-size: 2em;
+            }
+
+            .quote-text {
+                font-size: 1.2em;
+            }
+
+            .quote-text::before,
+            .quote-text::after {
+                font-size: 3em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>✨ Вдохновляющие цитаты</h1>
+
+        <div class="quote-container" id="quoteContainer">
+            <div class="quote-text" id="quoteText">{{ quote.text }}</div>
+            <div class="quote-author" id="quoteAuthor">{{ quote.author }}</div>
+        </div>
+
+        <button class="refresh-btn" onclick="getNewQuote()" id="refreshBtn">
+            Новая цитата
+        </button>
+    </div>
+
+    <script>
+        async function getNewQuote() {
+            const container = document.getElementById('quoteContainer');
+            const btn = document.getElementById('refreshBtn');
+            const quoteText = document.getElementById('quoteText');
+
+            // Показываем состояние загрузки
+            container.classList.add('loading');
+            btn.textContent = 'Загружаем...';
+            btn.disabled = true;
+
+            // Убираем класс ошибки если он был
+            quoteText.classList.remove('error');
+
+            try {
+                const response = await fetch('/api/quote');
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                if (!data.text || !data.author) {
+                    throw new Error('Неполные данные цитаты');
+                }
+
+                // Обновляем содержимое с анимацией
+                setTimeout(() => {
+                    document.getElementById('quoteText').textContent = data.text;
+                    document.getElementById('quoteAuthor').textContent = data.author;
+                    container.classList.remove('loading');
+                }, 300);
+
+            } catch (error) {
+                console.error('Ошибка при загрузке цитаты:', error);
+
+                // Показываем сообщение об ошибке
+                setTimeout(() => {
+                    document.getElementById('quoteText').textContent = 'Не удалось загрузить цитату. Попробуйте еще раз.';
+                    document.getElementById('quoteText').classList.add('error');
+                    document.getElementById('quoteAuthor').textContent = 'Ошибка';
+                    container.classList.remove('loading');
+                }, 300);
+            }
+
+            // Восстанавливаем кнопку
+            btn.textContent = 'Новая цитата';
+            btn.disabled = false;
+        }
+
+        // Автоматическое обновление цитаты каждые 30 секунд
+        setInterval(getNewQuote, 30000);
+    </script>
+</body>
+</html>
