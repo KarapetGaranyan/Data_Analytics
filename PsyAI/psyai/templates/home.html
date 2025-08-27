@@ -1,0 +1,35 @@
+<!-- templates/home.html -->
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto text-center">
+        <h1 class="display-4 mb-4">🧠 PsyAI</h1>
+        <p class="lead">Доступная психологическая поддержка с помощью ИИ</p>
+
+        <div class="row mt-5">
+            <div class="col-md-4">
+                <h5>💬 Эмпатичное общение</h5>
+                <p>ИИ-психолог обучен понимать ваши эмоции и давать поддержку</p>
+            </div>
+            <div class="col-md-4">
+                <h5>🆓 Бесплатная сессия</h5>
+                <p>5 бесплатных сообщений для каждого нового пользователя</p>
+            </div>
+            <div class="col-md-4">
+                <h5>🔒 Конфиденциально</h5>
+                <p>Ваши беседы защищены и остаются приватными</p>
+            </div>
+        </div>
+
+        <div class="mt-5">
+            {% if user.is_authenticated %}
+                <a href="{% url 'chat' %}" class="btn btn-primary btn-lg">Продолжить общение</a>
+            {% else %}
+                <a href="{% url 'register' %}" class="btn btn-success btn-lg me-3">Начать бесплатно</a>
+                <a href="{% url 'login' %}" class="btn btn-outline-primary btn-lg">Уже есть аккаунт</a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
