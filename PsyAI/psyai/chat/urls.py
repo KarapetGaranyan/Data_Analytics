@@ -11,4 +11,9 @@ urlpatterns = [
     path('chat/', views.chat_view, name='chat'),
     path('api/send-message/', views.send_message, name='send_message'),
     path('upgrade/', views.upgrade_view, name='upgrade'),
+    # Платежи (убрали pricing, оставили только upgrade)
+    path('payments/create/<int:plan_id>/', views.create_payment_view, name='create_payment'),
+    path('payments/success/<uuid:payment_id>/', views.payment_success_view, name='payment_success'),
+    path('payments/cancel/', views.payment_cancel_view, name='payment_cancel'),
+    path('payments/webhook/', views.yukassa_webhook, name='yukassa_webhook'),
 ]

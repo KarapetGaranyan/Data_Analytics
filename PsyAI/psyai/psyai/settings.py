@@ -91,3 +91,17 @@ PROXYAPI_TOKEN = os.getenv('PROXYAPI_TOKEN', 'your-token-here')
 # Редиректы после входа
 LOGIN_URL = '/auth/login/'
 LOGIN_REDIRECT_URL = '/chat/'
+
+# ЮKassa настройки
+YUKASSA_SHOP_ID = os.getenv('YUKASSA_SHOP_ID', 'your-shop-id')
+YUKASSA_SECRET_KEY = os.getenv('YUKASSA_SECRET_KEY', 'your-secret-key')
+
+# Для тестирования (потом поменять на False)
+YUKASSA_TEST_MODE = True
+
+# URL для уведомлений от ЮKassa
+YUKASSA_WEBHOOK_URL = os.getenv('YUKASSA_WEBHOOK_URL', 'https://yourdomain.com/payments/webhook/')
+
+# URL для редиректов после оплаты
+PAYMENT_SUCCESS_URL = '/payments/success/'
+PAYMENT_CANCEL_URL = '/payments/cancel/'
