@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+
+{% block title %}Профиль - AI Chats{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Баланс и статистика</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <strong>Текущий баланс:</strong> {{ user.balance }} ₽
+                    </div>
+                    <div class="mb-3">
+                        <strong>Бесплатных сообщений:</strong> {{ free_messages_left }} из 5
+                    </div>
+                    <div class="mb-3">
+                        <strong>Использовано бесплатных:</strong> {{ user.free_messages_used }}
+                    </div>
+                    <div class="mb-3">
+                        <strong>Стоимость сообщения:</strong> {{ message_price }} ₽
+                    </div>
+
+                    <a href="/accounts/topup/" class="btn btn-primary">Пополнить баланс</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5>История транзакций</h5>
+                </div>
+                <div class="card-body">
+                    {% if transactions %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Дата</th>
+                                        <th>Тип</th>
+                                        <th>Сумма</th>
+                                        <th>Описание</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for transaction in transactions %}
+                                        <tr>
+                                            <td>{{ transaction.created_at|date:"d.m.Y H:i" }}</td>
+                                            <td>
+                                                {% if transaction.transaction_type == 'topup' %}
+                                                    <span class="badge bg-success">Пополнение</span>
+                                                {% else %}
+                                                    <span class="badge bg-info">Сообщение</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if transaction.transaction_type == 'topup' %}
+                                                    +{{ transaction.amount }} ₽
+                                                {% elif transaction.amount == 0 %}
+                                                    Бесплатно
+                                                {% else %}
+                                                    -{{ transaction.amount }} ₽
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ transaction.description }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">Транзакций пока нет</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

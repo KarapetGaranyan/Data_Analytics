@@ -1,16 +1,75 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Chats</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+{% extends 'base.html' %}
+
+{% block title %}AI Chats{% endblock %}
+
+{% block content %}
+{% if user.is_authenticated %}
+    <div class="container-fluid mt-4">
+        <div class="row justify-content-center">
+            <div class="col-12 col-lg-10 col-xl-8">
+                <h1 class="text-center mb-4">AI Chats</h1>
+                
+                <!-- Статус баланса -->
+                <div class="alert alert-info text-center">
+                    {% if user.get_available_messages > 0 %}
+                        У вас осталось <strong>{{ user.get_available_messages }}</strong> бесплатных сообщений
+                    {% else %}
+                        Баланс: <strong>{{ user.balance }} ₽</strong>
+                        (стоимость сообщения: 2 ₽)
+                        {% if user.balance < 2 %}
+                            <a href="/accounts/topup/" class="btn btn-sm btn-warning ms-2">Пополнить</a>
+                        {% endif %}
+                    {% endif %}
+                </div>
+
+                <!-- Выбор модели и ассистента -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Модель ИИ:</label>
+                        <select class="form-select" id="modelSelect">
+                            <option value="">Выберите модель...</option>
+                            {% for model in models %}
+                                <option value="{{ model.id }}">{{ model.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Ассистент:</label>
+                        <select class="form-select" id="assistantSelect">
+                            <option value="">Без ассистента</option>
+                            {% for assistant in assistants %}
+                                <option value="{{ assistant.id }}">{{ assistant.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Описание ассистента -->
+                <div id="assistantDescription" class="alert alert-info alert-dismissible fade show" style="display: none; position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 1050; max-width: 600px; margin: 0;">
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    <span id="assistantDescriptionText"></span>
+                </div>
+
+                <!-- Чат -->
+                <div class="chat-container" id="chatContainer"></div>
+
+                <!-- Ввод сообщения -->
+                <div class="input-group mt-3 mb-4">
+                    <input type="text" class="form-control form-control-lg" id="messageInput" placeholder="Введите ваше сообщение...">
+                    <button class="btn btn-primary btn-lg" id="sendButton" onclick="sendMessage()">Отправить</button>
+                    <button class="btn btn-outline-secondary btn-lg" id="continueButton" onclick="continueMessage()" style="display: none;">Продолжить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
     <style>
         .chat-container {
-            height: calc(100vh - 300px);
+            height: calc(100vh - 400px);
             min-height: 400px;
             max-height: 700px;
             overflow-y: auto;
@@ -78,7 +137,7 @@
         /* Мобильная адаптация */
         @media (max-width: 768px) {
             .chat-container {
-                height: calc(100vh - 350px);
+                height: calc(100vh - 450px);
                 min-height: 300px;
             }
 
@@ -102,59 +161,11 @@
 
         @media (min-width: 1400px) {
             .chat-container {
-                height: calc(100vh - 280px);
+                height: calc(100vh - 380px);
             }
         }
     </style>
-</head>
-<body>
-    <div class="container-fluid mt-4">
-        <div class="row justify-content-center">
-            <div class="col-12 col-lg-10 col-xl-8">
-                <h1 class="text-center mb-4">AI Chats</h1>
 
-                <!-- Выбор модели и ассистента -->
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <label class="form-label">Модель ИИ:</label>
-                        <select class="form-select" id="modelSelect">
-                            <option value="">Выберите модель...</option>
-                            {% for model in models %}
-                                <option value="{{ model.id }}">{{ model.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Ассистент:</label>
-                        <select class="form-select" id="assistantSelect">
-                            <option value="">Без ассистента</option>
-                            {% for assistant in assistants %}
-                                <option value="{{ assistant.id }}">{{ assistant.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                </div>
-
-                <!-- Описание ассистента -->
-                <div id="assistantDescription" class="alert alert-info alert-dismissible fade show" style="display: none; position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 1050; max-width: 600px; margin: 0;">
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    <span id="assistantDescriptionText"></span>
-                </div>
-
-                <!-- Чат -->
-                <div class="chat-container" id="chatContainer"></div>
-
-                <!-- Ввод сообщения -->
-                <div class="input-group mt-3 mb-4">
-                    <input type="text" class="form-control form-control-lg" id="messageInput" placeholder="Введите ваше сообщение...">
-                    <button class="btn btn-primary btn-lg" id="sendButton" onclick="sendMessage()">Отправить</button>
-                    <button class="btn btn-outline-secondary btn-lg" id="continueButton" onclick="continueMessage()" style="display: none;">Продолжить</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         const assistants = {
             {% for assistant in assistants %}
@@ -294,12 +305,13 @@
             try {
                 // Увеличиваем таймаут до 3 минут
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 180000); // 3 минуты
+                const timeoutId = setTimeout(() => controller.abort(), 180000);
 
                 const response = await fetch('/api/chat/', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}',
                     },
                     body: JSON.stringify({
                         messages: conversationHistory,
@@ -310,7 +322,6 @@
                 });
 
                 clearTimeout(timeoutId);
-
                 const data = await response.json();
 
                 removeLoadingMessage();
@@ -319,6 +330,14 @@
                     conversationHistory.push({ role: 'assistant', content: data.response });
                     addMessage(data.response, false, isContinue);
                     showContinueButton();
+                } else if (response.status === 401) {
+                    addMessage('Необходима авторизация. Пожалуйста, войдите в систему.', false);
+                    setTimeout(() => window.location.href = '/accounts/login/', 2000);
+                } else if (response.status === 402) {
+                    addMessage('Недостаточно средств для отправки сообщения. Пополните баланс.', false);
+                    if (data.need_payment) {
+                        setTimeout(() => window.location.href = '/accounts/topup/', 2000);
+                    }
                 } else {
                     addMessage(`Ошибка: ${data.error}`, false);
                 }
@@ -334,5 +353,53 @@
             }
         }
     </script>
-</body>
-</html>
+
+{% else %}
+    <!-- Страница для неавторизованных пользователей -->
+    <div class="row justify-content-center">
+        <div class="col-md-8 text-center">
+            <h1 class="display-4 mb-4">AI Chats</h1>
+            <p class="lead mb-4">
+                Универсальная платформа для общения с различными AI-ассистентами.
+                Выбирайте из множества моделей и специализированных помощников.
+            </p>
+
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">🎁 Бесплатный старт</h5>
+                            <p class="card-text">5 бесплатных сообщений при регистрации</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">🤖 Множество моделей</h5>
+                            <p class="card-text">GPT, Claude, DeepSeek, Gemini</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">👨‍💼 Специалисты</h5>
+                            <p class="card-text">Программист, Психолог, Учитель</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+                <a href="/accounts/signup/" class="btn btn-primary btn-lg me-md-2">
+                    Начать бесплатно
+                </a>
+                <a href="/accounts/login/" class="btn btn-outline-primary btn-lg">
+                    Войти
+                </a>
+            </div>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}

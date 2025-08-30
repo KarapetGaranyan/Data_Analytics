@@ -4,7 +4,9 @@ from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
+from django.contrib.auth.decorators import login_required
 from .models import AIModel, Assistant
+from accounts.models import Transaction
 
 
 def index(request):
@@ -18,6 +20,16 @@ def index(request):
 
 @csrf_exempt
 def chat_api(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Необходима авторизация'}, status=401)
+
+    # Проверяем, может ли пользователь отправить сообщение
+    if not request.user.can_send_message():
+        return JsonResponse({
+            'error': 'Недостаточно средств. Пополните баланс или используйте бесплатные сообщения.',
+            'need_payment': True
+        }, status=402)
+
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
 
@@ -181,6 +193,25 @@ def chat_api(request):
 
         if response.status_code == 200:
             result = response.json()
+
+            # Списываем стоимость сообщения
+            request.user.charge_for_message()
+
+            # Создаем транзакцию
+            if request.user.get_available_messages() >= 0:
+                Transaction.objects.create(
+                    user=request.user,
+                    transaction_type='message',
+                    amount=0,
+                    description='Бесплатное сообщение'
+                )
+            else:
+                Transaction.objects.create(
+                    user=request.user,
+                    transaction_type='message',
+                    amount=settings.MESSAGE_PRICE,
+                    description='Платное сообщение'
+                )
 
             if model.provider == 'anthropic':
                 # Для Claude ответ в другом формате

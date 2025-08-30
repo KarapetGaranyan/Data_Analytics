@@ -1,0 +1,187 @@
+<script>
+const assistants = {
+    {% for assistant in assistants %}
+    {{ assistant.id }}: "{{ assistant.description }}",
+    {% endfor %}
+};
+
+let lastAIMessage = null;
+let conversationHistory = [];
+
+// Показ описания ассистента
+document.getElementById('assistantSelect').addEventListener('change', function() {
+    const assistantId = this.value;
+    const description = document.getElementById('assistantDescription');
+    const descriptionText = document.getElementById('assistantDescriptionText');
+
+    if (assistantId && assistants[assistantId]) {
+        descriptionText.textContent = assistants[assistantId];
+        description.style.display = 'block';
+
+        // Автоматически скрыть через 3 секунды
+        setTimeout(() => {
+            if (description.style.display !== 'none') {
+                const bsAlert = new bootstrap.Alert(description);
+                bsAlert.close();
+            }
+        }, 3000);
+    } else {
+        description.style.display = 'none';
+    }
+});
+
+// Отправка сообщения по Enter
+document.getElementById('messageInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        sendMessage();
+    }
+});
+
+function addMessage(content, isUser, isAppend = false) {
+    const chatContainer = document.getElementById('chatContainer');
+
+    if (isAppend && lastAIMessage) {
+        // Добавляем к последнему сообщению ИИ
+        const existingContent = lastAIMessage.getAttribute('data-raw-content') || '';
+        const newContent = existingContent + content;
+        lastAIMessage.setAttribute('data-raw-content', newContent);
+        lastAIMessage.innerHTML = marked.parse(newContent);
+        lastAIMessage.querySelectorAll('pre code').forEach((block) => {
+            hljs.highlightElement(block);
+        });
+    } else {
+        // Создаем новое сообщение
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${isUser ? 'user-message' : 'ai-message'}`;
+
+        if (isUser) {
+            messageDiv.textContent = content;
+        } else {
+            messageDiv.setAttribute('data-raw-content', content);
+            messageDiv.innerHTML = marked.parse(content);
+            messageDiv.querySelectorAll('pre code').forEach((block) => {
+                hljs.highlightElement(block);
+            });
+            lastAIMessage = messageDiv;
+        }
+
+        chatContainer.appendChild(messageDiv);
+    }
+
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+}
+
+function addLoadingMessage() {
+    const chatContainer = document.getElementById('chatContainer');
+    const loadingDiv = document.createElement('div');
+    loadingDiv.className = 'message loading';
+    loadingDiv.innerHTML = '<em>ИИ обрабатывает запрос... (это может занять до 2 минут)</em>';
+    loadingDiv.id = 'loadingMessage';
+    chatContainer.appendChild(loadingDiv);
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+    return loadingDiv;
+}
+
+function removeLoadingMessage() {
+    const loading = document.getElementById('loadingMessage');
+    if (loading) {
+        loading.remove();
+    }
+}
+
+function showContinueButton() {
+    document.getElementById('continueButton').style.display = 'block';
+}
+
+function hideContinueButton() {
+    document.getElementById('continueButton').style.display = 'none';
+}
+
+async function sendMessage() {
+    const messageInput = document.getElementById('messageInput');
+    const message = messageInput.value.trim();
+
+    if (!message) return;
+
+    await processMessage(message, false);
+}
+
+async function continueMessage() {
+    await processMessage("Продолжи", true);
+}
+
+async function processMessage(message, isContinue) {
+    const sendButton = document.getElementById('sendButton');
+    const modelId = document.getElementById('modelSelect').value;
+    const assistantId = document.getElementById('assistantSelect').value;
+
+    if (!modelId) {
+        alert('Пожалуйста, выберите модель ИИ');
+        return;
+    }
+
+    // Добавляем сообщение пользователя в историю
+    if (!isContinue) {
+        conversationHistory.push({ role: 'user', content: message });
+        addMessage(message, true);
+        document.getElementById('messageInput').value = '';
+    } else {
+        conversationHistory.push({ role: 'user', content: message });
+    }
+
+    // Показываем загрузку
+    const loading = addLoadingMessage();
+    sendButton.disabled = true;
+    hideContinueButton();
+
+    try {
+        // Увеличиваем таймаут до 3 минут
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 180000);
+
+        const response = await fetch('/api/chat/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}',
+            },
+            body: JSON.stringify({
+                messages: conversationHistory,
+                model_id: parseInt(modelId),
+                assistant_id: assistantId ? parseInt(assistantId) : null
+            }),
+            signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+        const data = await response.json();
+
+        removeLoadingMessage();
+
+        if (response.ok) {
+            conversationHistory.push({ role: 'assistant', content: data.response });
+            addMessage(data.response, false, isContinue);
+            showContinueButton();
+        } else if (response.status === 401) {
+            addMessage('Необходима авторизация. Пожалуйста, войдите в систему.', false);
+            setTimeout(() => window.location.href = '/accounts/login/', 2000);
+        } else if (response.status === 402) {
+            addMessage('Недостаточно средств для отправки сообщения. Пополните баланс.', false);
+            if (data.need_payment) {
+                setTimeout(() => window.location.href = '/accounts/topup/', 2000);
+            }
+        } else {
+            addMessage(`Ошибка: ${data.error}`, false);
+        }
+    } catch (error) {
+        removeLoadingMessage();
+        if (error.name === 'AbortError') {
+            addMessage(`Запрос прерван: слишком долгий ответ (более 3 минут)`, false);
+        } else {
+            addMessage(`Ошибка сети: ${error.message}`, false);
+        }
+    } finally {
+        sendButton.disabled = false;
+    }
+}
+</script>

@@ -16,6 +16,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'chat',
+    'accounts',
 ]
 
 MIDDLEWARE = [
@@ -33,7 +34,7 @@ ROOT_URLCONF = 'aichats.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -69,3 +70,19 @@ PROXYAPI_URLS = {
     'deepseek': 'https://api.proxyapi.ru/deepseek',
     'google': 'https://api.proxyapi.ru/google',
 }
+# Кастомная модель пользователя
+AUTH_USER_MODEL = 'accounts.User'
+
+# Цены
+MESSAGE_PRICE = 2.0
+FREE_MESSAGES_COUNT = 5
+
+LOGIN_URL = '/accounts/login/'
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/'
+
+YOOKASSA_SHOP_ID = config('YOOKASSA_SHOP_ID', default='')
+YOOKASSA_SECRET_KEY = config('YOOKASSA_SECRET_KEY', default='')
+
+# Разрешить POST запросы на webhook без CSRF
+CSRF_TRUSTED_ORIGINS = ['https://api.yookassa.ru']

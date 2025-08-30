@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+
+{% block title %}Пополнение баланса - AI Chats{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Пополнение баланса</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <strong>Текущий баланс:</strong> {{ user.balance }} ₽<br>
+                        <strong>Стоимость сообщения:</strong> 2 ₽<br>
+                        <strong>Бесплатных сообщений осталось:</strong> {{ user.get_available_messages }}
+                    </div>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label">{{ form.amount.label }}</label>
+                            {% for choice in form.amount %}
+                                <div class="form-check">
+                                    {{ choice.tag }}
+                                    <label class="form-check-label" for="{{ choice.id_for_label }}">
+                                        {{ choice.choice_label }}
+                                    </label>
+                                </div>
+                            {% endfor %}
+                        </div>
+
+                        <button type="submit" class="btn btn-success btn-lg w-100">
+                            Перейти к оплате
+                        </button>
+                        <a href="/accounts/profile/" class="btn btn-secondary w-100 mt-2">Отмена</a>
+                    </form>
+
+                    <hr>
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <img src="https://yookassa.ru/files/logo-download/yoomoney_logo_color.svg" alt="ЮMoney" height="20">
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">Безопасная оплата</small>
+                        </div>
+                    </div>
+
+                    <small class="text-muted d-block mt-3">
+                        Оплата производится через систему ЮKassa.
+                        Средства поступят на ваш баланс сразу после успешного платежа.
+                        В случае проблем с оплатой обратитесь в поддержку.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

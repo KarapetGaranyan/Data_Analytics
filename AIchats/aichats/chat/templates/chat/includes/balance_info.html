@@ -1,0 +1,11 @@
+<div class="alert alert-info text-center">
+    {% if user.get_available_messages > 0 %}
+        У вас осталось <strong>{{ user.get_available_messages }}</strong> бесплатных сообщений
+    {% else %}
+        Баланс: <strong>{{ user.balance }} ₽</strong>
+        (стоимость сообщения: 2 ₽)
+        {% if user.balance < 2 %}
+            <a href="/accounts/topup/" class="btn btn-sm btn-warning ms-2">Пополнить</a>
+        {% endif %}
+    {% endif %}
+</div>
