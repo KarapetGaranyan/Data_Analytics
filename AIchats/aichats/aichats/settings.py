@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 from decouple import config
-# from decimal import Decimal
+from decimal import Decimal
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -92,5 +92,5 @@ CSRF_TRUSTED_ORIGINS = ['https://api.yookassa.ru']
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# MESSAGE_PRICE = Decimal('2.0')
-# FREE_MESSAGES_COUNT = 5
+MESSAGE_PRICE = Decimal('2.0')
+FREE_MESSAGES_COUNT = 5
