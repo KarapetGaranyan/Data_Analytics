@@ -19,11 +19,12 @@ class User(AbstractUser):
 
     def charge_for_message(self):
         from django.conf import settings
+        from decimal import Decimal
 
         if self.get_available_messages() > 0:
             self.free_messages_used += 1
         else:
-            self.balance -= settings.MESSAGE_PRICE
+            self.balance -= Decimal(str(settings.MESSAGE_PRICE))  # Конвертируем в Decimal
 
         self.save()
 

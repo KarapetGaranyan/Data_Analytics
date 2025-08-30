@@ -8,6 +8,9 @@ from django.contrib.auth.decorators import login_required
 from .models import AIModel, Assistant
 from accounts.models import Transaction
 
+import base64
+from .models import AIModel, Assistant, ChatImage
+
 
 def index(request):
     models = AIModel.objects.filter(is_active=True)
@@ -23,7 +26,6 @@ def chat_api(request):
     if not request.user.is_authenticated:
         return JsonResponse({'error': 'Необходима авторизация'}, status=401)
 
-    # Проверяем, может ли пользователь отправить сообщение
     if not request.user.can_send_message():
         return JsonResponse({
             'error': 'Недостаточно средств. Пополните баланс или используйте бесплатные сообщения.',
@@ -38,12 +40,14 @@ def chat_api(request):
         messages = data.get('messages', [])
         model_id = data.get('model_id')
         assistant_id = data.get('assistant_id')
+        image_id = data.get('image_id')
 
-        # Поддержка старого формата для совместимости
+        # Поддержка старого формата
         if not messages and data.get('message'):
             messages = [{'role': 'user', 'content': data.get('message')}]
 
-        print(f"Получен запрос: model_id={model_id}, assistant_id={assistant_id}, messages={len(messages)}")
+        print(
+            f"Получен запрос: model_id={model_id}, assistant_id={assistant_id}, messages={len(messages)}, image_id={image_id}")
 
         if not messages:
             return JsonResponse({'error': 'Сообщения не могут быть пустыми'}, status=400)
@@ -77,6 +81,36 @@ def chat_api(request):
         for msg in messages:
             api_messages.append(msg)
 
+        # Обрабатываем изображение если есть
+        if image_id:
+            try:
+                chat_image = ChatImage.objects.get(id=image_id)
+                with open(chat_image.image.path, 'rb') as img_file:
+                    image_base64 = base64.b64encode(img_file.read()).decode()
+
+                # Модифицируем последнее пользовательское сообщение
+                if api_messages and api_messages[-1]['role'] == 'user':
+                    original_content = api_messages[-1]['content']
+
+                    if model.provider == 'openai':
+                        api_messages[-1]['content'] = [
+                            {"type": "text", "text": original_content},
+                            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}}
+                        ]
+                    elif model.provider == 'anthropic':
+                        api_messages[-1]['content'] = [
+                            {"type": "text", "text": original_content},
+                            {"type": "image",
+                             "source": {"type": "base64", "media_type": "image/jpeg", "data": image_base64}}
+                        ]
+
+            except ChatImage.DoesNotExist:
+                print("Изображение не найдено")
+                pass
+            except Exception as e:
+                print(f"Ошибка обработки изображения: {str(e)}")
+                pass
+
         # Получаем URL для провайдера
         provider_urls = {
             'openai': 'https://api.proxyapi.ru/openai/v1',
@@ -101,7 +135,6 @@ def chat_api(request):
 
         if model.provider == 'anthropic':
             print("Используем Anthropic API")
-            # Для Claude используется другой формат API
             claude_messages = []
             system_content = None
 
@@ -124,37 +157,39 @@ def chat_api(request):
 
         elif model.provider == 'google':
             print("Используем Google Gemini API")
-            # Для Google Gemini используется формат с parts
             gemini_contents = []
 
-            # Преобразуем сообщения в правильный формат Gemini
             for msg in api_messages:
                 if msg['role'] == 'user':
-                    gemini_contents.append({
-                        "parts": [{"text": msg['content']}]
-                    })
+                    parts = [{"text": msg['content']}]
+
+                    # Добавляем изображение для Gemini
+                    if image_id:
+                        try:
+                            chat_image = ChatImage.objects.get(id=image_id)
+                            with open(chat_image.image.path, 'rb') as img_file:
+                                image_base64 = base64.b64encode(img_file.read()).decode()
+                            parts.append({
+                                "inline_data": {
+                                    "mime_type": "image/jpeg",
+                                    "data": image_base64
+                                }
+                            })
+                        except ChatImage.DoesNotExist:
+                            pass
+
+                    gemini_contents.append({"parts": parts})
                 elif msg['role'] == 'assistant':
-                    # В Gemini роль assistant называется model
                     gemini_contents.append({
                         "role": "model",
                         "parts": [{"text": msg['content']}]
                     })
-                # Системные сообщения добавляем к первому пользовательскому сообщению
-                elif msg['role'] == 'system' and gemini_contents:
-                    # Добавляем системное сообщение к последнему user сообщению
-                    if 'role' not in gemini_contents[-1]:  # это user сообщение
-                        original_text = gemini_contents[-1]['parts'][0]['text']
-                        gemini_contents[-1]['parts'][0]['text'] = f"{msg['content']}\n\n{original_text}"
 
-            payload = {
-                'contents': gemini_contents
-            }
-
+            payload = {'contents': gemini_contents}
             endpoint = f'{base_url}/v1/models/{model.api_name}:generateContent'
 
         else:
             print("Используем OpenAI/DeepSeek API")
-            # Для OpenAI и DeepSeek используется стандартный формат
             payload = {
                 'model': model.api_name,
                 'messages': api_messages,
@@ -173,7 +208,7 @@ def chat_api(request):
                     endpoint,
                     headers=headers,
                     json=payload,
-                    timeout=(10, 120)  # (connection_timeout, read_timeout)
+                    timeout=(10, 120)
                 )
                 break
             except requests.exceptions.Timeout as e:
@@ -203,21 +238,19 @@ def chat_api(request):
                     user=request.user,
                     transaction_type='message',
                     amount=0,
-                    description='Бесплатное сообщение'
+                    description='Бесплатное сообщение с изображением' if image_id else 'Бесплатное сообщение'
                 )
             else:
                 Transaction.objects.create(
                     user=request.user,
                     transaction_type='message',
                     amount=settings.MESSAGE_PRICE,
-                    description='Платное сообщение'
+                    description='Платное сообщение с изображением' if image_id else 'Платное сообщение'
                 )
 
             if model.provider == 'anthropic':
-                # Для Claude ответ в другом формате
                 ai_response = result['content'][0]['text']
             elif model.provider == 'google':
-                # Для Google Gemini ответ в другом формате
                 if 'candidates' in result and len(result['candidates']) > 0:
                     candidate = result['candidates'][0]
                     if 'content' in candidate and 'parts' in candidate['content'] and len(
@@ -228,7 +261,6 @@ def chat_api(request):
                 else:
                     ai_response = str(result)
             else:
-                # Для OpenAI и DeepSeek
                 ai_response = result['choices'][0]['message']['content']
 
             return JsonResponse({'response': ai_response})
@@ -244,3 +276,32 @@ def chat_api(request):
         import traceback
         traceback.print_exc()
         return JsonResponse({'error': str(e)}, status=500)
+
+@csrf_exempt
+def upload_image(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Authentication required'}, status=401)
+
+    if request.method == 'POST' and request.FILES.get('image'):
+        try:
+            # Проверяем размер файла (максимум 10MB)
+            image_file = request.FILES['image']
+            if image_file.size > 10 * 1024 * 1024:
+                return JsonResponse({'error': 'Файл слишком большой'}, status=400)
+
+            # Проверяем тип файла
+            allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+            if image_file.content_type not in allowed_types:
+                return JsonResponse({'error': 'Неподдерживаемый тип файла'}, status=400)
+
+            image = ChatImage.objects.create(image=image_file)
+            return JsonResponse({
+                'success': True,
+                'image_id': image.id,
+                'image_url': image.image.url
+            })
+        except Exception as e:
+            print(f"Ошибка загрузки изображения: {str(e)}")
+            return JsonResponse({'error': str(e)}, status=400)
+
+    return JsonResponse({'error': 'No image provided'}, status=400)

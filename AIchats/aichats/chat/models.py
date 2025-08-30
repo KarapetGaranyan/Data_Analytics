@@ -75,3 +75,11 @@ class Assistant(models.Model):
             parts.append(f"ДОПОЛНИТЕЛЬНЫЕ РУКОВОДЯЩИЕ ПРИНЦИПЫ:\n{self.additional_guidelines}")
 
         return "\n\n".join(parts)
+
+
+class ChatImage(models.Model):
+    image = models.ImageField(upload_to='chat_images/%Y/%m/%d/')
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Image {self.id}"

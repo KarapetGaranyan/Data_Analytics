@@ -53,12 +53,20 @@
                 <!-- Чат -->
                 <div class="chat-container" id="chatContainer"></div>
 
-                <!-- Ввод сообщения -->
-                <div class="input-group mt-3 mb-4">
-                    <input type="text" class="form-control form-control-lg" id="messageInput" placeholder="Введите ваше сообщение...">
-                    <button class="btn btn-primary btn-lg" id="sendButton" onclick="sendMessage()">Отправить</button>
-                    <button class="btn btn-outline-secondary btn-lg" id="continueButton" onclick="continueMessage()" style="display: none;">Продолжить</button>
-                </div>
+            <!-- Ввод сообщения -->
+            <div class="input-group mt-3 mb-4">
+                <input type="file" id="imageInput" accept="image/*" style="display:none" onchange="previewImage()">
+                <button class="btn btn-outline-secondary" onclick="document.getElementById('imageInput').click()">📷</button>
+                <input type="text" class="form-control form-control-lg" id="messageInput" placeholder="Введите ваше сообщение...">
+                <button class="btn btn-primary btn-lg" id="sendButton" onclick="sendMessage()">Отправить</button>
+                <button class="btn btn-outline-secondary btn-lg" id="continueButton" onclick="continueMessage()" style="display: none;">Продолжить</button>
+            </div>
+
+            <!-- Preview изображения -->
+            <div id="imagePreview" style="display:none" class="mb-3">
+                <img id="previewImg" style="max-width: 200px; max-height: 200px; border-radius: 8px;">
+                <button onclick="clearImage()" class="btn btn-sm btn-danger ms-2">✕</button>
+            </div>
             </div>
         </div>
     </div>
@@ -313,11 +321,12 @@
                         'Content-Type': 'application/json',
                         'X-CSRFToken': '{{ csrf_token }}',
                     },
-                    body: JSON.stringify({
-                        messages: conversationHistory,
-                        model_id: parseInt(modelId),
-                        assistant_id: assistantId ? parseInt(assistantId) : null
-                    }),
+                body: JSON.stringify({
+                    messages: conversationHistory,
+                    model_id: parseInt(modelId),
+                    assistant_id: assistantId ? parseInt(assistantId) : null,
+                    image_id: selectedImageId  // Добавляем изображение
+                }),
                     signal: controller.signal
                 });
 
@@ -352,6 +361,54 @@
                 sendButton.disabled = false;
             }
         }
+
+        let selectedImageId = null;
+
+                function previewImage() {
+                    const fileInput = document.getElementById('imageInput');
+                    const file = fileInput.files[0];
+
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            document.getElementById('previewImg').src = e.target.result;
+                            document.getElementById('imagePreview').style.display = 'block';
+                        };
+                        reader.readAsDataURL(file);
+
+                        // Загружаем на сервер
+                        uploadImage(file);
+                    }
+                }
+
+                async function uploadImage(file) {
+                    const formData = new FormData();
+                    formData.append('image', file);
+
+                    try {
+                        const response = await fetch('/upload-image/', {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRFToken': '{{ csrf_token }}',
+                            },
+                            body: formData
+                        });
+
+                        if (response.ok) {
+                            const data = await response.json();
+                            selectedImageId = data.image_id;
+                        }
+                    } catch (error) {
+                        console.error('Ошибка загрузки:', error);
+                    }
+                }
+
+                function clearImage() {
+                    document.getElementById('imagePreview').style.display = 'none';
+                    document.getElementById('imageInput').value = '';
+                    selectedImageId = null;
+                }
+
     </script>
 
 {% else %}

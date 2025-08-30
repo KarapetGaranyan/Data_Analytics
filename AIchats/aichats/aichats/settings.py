@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from decouple import config
+# from decimal import Decimal
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -86,3 +87,10 @@ YOOKASSA_SECRET_KEY = config('YOOKASSA_SECRET_KEY', default='')
 
 # Разрешить POST запросы на webhook без CSRF
 CSRF_TRUSTED_ORIGINS = ['https://api.yookassa.ru']
+
+# Медиа файлы
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# MESSAGE_PRICE = Decimal('2.0')
+# FREE_MESSAGES_COUNT = 5
